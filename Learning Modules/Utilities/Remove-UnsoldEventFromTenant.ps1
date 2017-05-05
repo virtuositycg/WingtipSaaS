@@ -51,15 +51,14 @@ $fullyQualifiedTenantServerName = $tenantMapping.Shard.Location.Server
 
 # Get the first unsold event on the tenant database 
 $queryText = "SELECT TOP(1) EventName FROM EventsWithNoTickets"
-$eventName = Invoke-Sqlcmd `
+$eventName = Invoke-SqlAzureWithRetry `
                 -ServerInstance $fullyQualifiedTenantServerName `
                 -Username $config.TenantAdminuserName `
                 -Password $config.TenantAdminPassword `
                 -Database $tenantDatabaseName `
                 -Query $queryText `
                 -ConnectionTimeout 30 `
-                -QueryTimeout 30 `
-                -EncryptConnection
+                -QueryTimeout 30
 
 if ($eventName)
 {
@@ -69,16 +68,15 @@ if ($eventName)
             SET @TargetEventID = (SELECT TOP(1) EventId FROM EventsWithNoTickets)
             EXEC sp_DeleteEvent @TargetEventID
             "
-    Invoke-Sqlcmd `
+    Invoke-SqlAzureWithRetry `
         -ServerInstance $fullyQualifiedTenantServerName `
         -Username $config.TenantAdminuserName `
         -Password $config.TenantAdminPassword `
         -Database $tenantDatabaseName `
         -Query $queryText `
         -ConnectionTimeout 30 `
-        -QueryTimeout 30 `
-        -EncryptConnection
-
+        -QueryTimeout 30
+        
     Write-Host "Deleted event '$($eventName.EventName)' from $TenantName venue."
     return $eventName.EventName
 }

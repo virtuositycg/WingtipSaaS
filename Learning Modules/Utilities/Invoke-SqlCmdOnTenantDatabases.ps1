@@ -38,31 +38,13 @@ $shards = Get-Shards -ShardMap $catalog.ShardMap
 
 foreach ($shard in $Shards)
 {
-    try
-    {
-        Write-Output "Applying command to database '$($shard.Location.Database)' on server '$($shard.Location.Server)'."
-        Invoke-Sqlcmd `
-            -Username $adminUserName `
-            -Password $adminPassword `
-            -ServerInstance $shard.Location.Server `
-            -Database $shard.Location.Database `
-            -ConnectionTimeout 30 `
-            -QueryTimeout $QueryTimeout `
-            -Query $CommandText `
-            -EncryptConnection
-    }
-    catch
-    {
-        # one time retry if errors
-        Invoke-Sqlcmd `
-            -Username $adminUserName `
-            -Password $adminPassword `
-            -ServerInstance $shard.Location.Server `
-            -Database $shard.Location.Database `
-            -ConnectionTimeout 30 `
-            -QueryTimeout $QueryTimeout `
-            -Query $CommandText `
-            -EncryptConnection        
-    }
-
+    Write-Output "Applying command to database '$($shard.Location.Database)' on server '$($shard.Location.Server)'."
+    Invoke-SqlAzureWithRetry `
+        -Username $adminUserName `
+        -Password $adminPassword `
+        -ServerInstance $shard.Location.Server `
+        -Database $shard.Location.Database `
+        -ConnectionTimeout 30 `
+        -QueryTimeout $QueryTimeout `
+        -Query $CommandText  
 }

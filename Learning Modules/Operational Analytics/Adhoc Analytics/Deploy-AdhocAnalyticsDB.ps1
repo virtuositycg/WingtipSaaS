@@ -25,6 +25,7 @@ param(
 $ErrorActionPreference = "Stop" 
 
 Import-Module $PSScriptRoot\..\..\Common\SubscriptionManagement -Force
+Import-Module $PSScriptRoot\..\..\Common\CatalogAndDatabaseManagement -Force
 Import-Module $PSScriptRoot\..\..\WtpConfig -Force
 
 $config = Get-Configuration
@@ -204,14 +205,13 @@ $commandText = "
     "
     Write-output "Initializing schema in '$databaseName'..."
 
-    Invoke-Sqlcmd `
+    Invoke-SqlAzureWithRetry `
     -ServerInstance $fullyQualfiedCatalogServerName `
     -Username $config.CatalogAdminUserName `
     -Password $config.CatalogAdminPassword `
     -Database $config.AdhocAnalyticsDatabaseName `
     -Query $commandText `
     -ConnectionTimeout 30 `
-    -QueryTimeout 30 `
-    -EncryptConnection
+    -QueryTimeout 30
 
 Write-Output "Deployment of Ad-hoc Analytics database '$databaseName' complete."

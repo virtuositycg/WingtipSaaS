@@ -88,12 +88,20 @@ try
 			-DatabaseName $($config.JobAccountDatabaseName) `
 			-ResourceGroupName $($WtpResourceGroupName)
 	}
- }
+}
 catch
 {
-	Write-Error $_.Exception.Message
-	Write-Error "An error occured deploying the job account"
-	throw
+	if ($_.Exception.Message -like "*NoRegisteredProviderFound*")
+    {
+        Write-Error "An error occurred deploying the job account: Your subscription is not signed up for the elastic jobs preview experience."
+        throw
+    }
+    else 
+    {
+        Write-Error $_.Exception.Message
+	    Write-Error "An error occured deploying the job account"
+	    throw
+    }
 }
 
 $commandText = "
@@ -112,34 +120,14 @@ $commandText = "
 
     Write-output "Initializing database scoped credentials in '$($config.JobAccountDatabaseName)'..."
 	
-    try
-    {    
-		Invoke-Sqlcmd `
-		-ServerInstance $fullyQualfiedCatalogServerName `
-		-Username $config.CatalogAdminUserName `
-		-Password $config.CatalogAdminPassword `
-		-Database $config.JobAccountDatabaseName `
-		-Query $commandText `
-		-ConnectionTimeout 30 `
-		-QueryTimeout 30 `
-		-EncryptConnection
-    }
-    catch
-    {
-        #retry once if fails. Query is idempotent.
-        Start-Sleep 2
-		Invoke-Sqlcmd `
-		-ServerInstance $fullyQualfiedCatalogServerName `
-		-Username $config.CatalogAdminUserName `
-		-Password $config.CatalogAdminPassword `
-		-Database $config.JobAccountDatabaseName `
-		-Query $commandText `
-		-ConnectionTimeout 30 `
-		-QueryTimeout 30 `
-		-EncryptConnection
-    }
-	
+    Invoke-SqlAzureWithRetry `
+        -ServerInstance $fullyQualfiedCatalogServerName `
+    	-Username $config.CatalogAdminUserName `
+    	-Password $config.CatalogAdminPassword `
+    	-Database $config.JobAccountDatabaseName `
+    	-Query $commandText `
+    	-ConnectionTimeout 30 `
+    	-QueryTimeout 30
+    
+   	
 Write-Output "Deployment of job account database '$($config.JobAccountDatabaseName)' and job account '$($config.JobAccount)' are complete."
-
-# Open the admin page for the Contoso Concert Hall tenant to view venue types available
-Start-Process "http://admin.wtp.$WtpUser.trafficmanager.net/$($normalizedTenantName)"

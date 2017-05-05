@@ -7,7 +7,6 @@
 Import-Module $PSScriptRoot\..\WtpConfig -Force
 Import-Module $PSScriptRoot\..\ProvisionConfig -Force
 Import-Module $PSScriptRoot\AzureShardManagement -Force
-Import-Module sqlserver -ErrorAction SilentlyContinue
 
 # Stop execution on error
 $ErrorActionPreference = "Stop"
@@ -807,30 +806,38 @@ function Invoke-SqlAzure{
         [Parameter(Mandatory=$false)]
         [int] $QueryTimeout = 60
       )
-    $Query = $Query.Trim()
-
+    
     $connectionString = `
         "Data Source=$ServerInstance;Initial Catalog=$DatabaseName;Connection Timeout=$ConnectionTimeOut;User ID=$UserName;Password=$Password;Encrypt=true;"
 
     $connection = new-object system.data.SqlClient.SQLConnection($connectionString)
-    $command = new-object system.data.sqlclient.sqlcommand($Query,$connection)
-    $command.CommandTimeout = $QueryTimeout
-
     $connection.Open()
 
-    $reader = $command.ExecuteReader()
-    
-    $results = @()
+    # Separate multiple commands by 'GO' statement
+    $commands = [regex]::Split($Query,'\bGO\b', 'IgnoreCase') | foreach{$_.Trim()} | Where {$_ -ne ""}
 
-    while ($reader.Read())
+    # Execute commands and return results from last query 
+    foreach ($item in $commands)
     {
-        $row = @{}
-        
-        for ($i=0;$i -lt $reader.FieldCount; $i++)
+        $command = new-object system.data.sqlclient.sqlcommand($item,$connection)
+        $command.CommandTimeout = $QueryTimeout
+
+        $reader = $command.ExecuteReader()
+    
+        $results = @()
+
+        while ($reader.Read())
         {
-           $row[$reader.GetName($i)]=$reader.GetValue($i)
+            $row = @{}
+            
+            for ($i=0;$i -lt $reader.FieldCount; $i++)
+            {
+               $row[$reader.GetName($i)]=$reader.GetValue($i)
+            }
+            $results += New-Object psobject -Property $row
         }
-        $results += New-Object psobject -Property $row
+        $reader.Close()
+        $reader.Dispose()
     }
      
     $connection.Close()
@@ -895,66 +902,6 @@ function Invoke-SqlAzureWithRetry{
         }
     }while (1 -eq 1)
 }
-
-
-<#
-.SYNOPSIS
-    Wraps Invoke-SqlCmd.  Retries on any error with exponential back-off policy.  
-    Assumes query is idempotent. Always uses an encrypted connection.
-#>
-function Invoke-SqlCmdWithRetry{
-    param(
-        [parameter(Mandatory=$true)]
-        [string]$DatabaseName,
-
-        [parameter(Mandatory=$true)]
-        [string]$ServerInstance,
-
-        [parameter(Mandatory=$true)]
-        [string]$Query,
-
-        [parameter(Mandatory=$true)]
-        [string]$UserName,
-
-        [parameter(Mandatory=$true)]
-        [string]$Password,
-
-        [string]$ConnectionTimeout = 30,
-
-        [int]$QueryTimeout = 30
-    )
-
-    $tries = 1
-    $limit = 5
-    $interval = 2
-    do  
-    {
-        try
-        {
-            return Invoke-Sqlcmd `
-                        -ServerInstance $ServerInstance `
-                        -Database $DatabaseName `
-                        -Query $Query `
-                        -Username $UserName `
-                        -Password $Password `
-                        -ConnectionTimeout $ConnectionTimeout `
-                        -QueryTimeout $QueryTimeout `
-                        -EncryptConnection
-        }
-        catch
-        {
-                    if ($tries -ge $limit)
-                    {
-                        throw $_.Exception.Message
-                    }                                       
-                    Start-Sleep ($interval)
-                    $interval += $interval
-                    $tries += 1                                      
-        }
-
-    }while (1 -eq 1)
-}
-
 
 <#
 .SYNOPSIS

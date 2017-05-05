@@ -1,6 +1,6 @@
 ﻿# Helper script for deploying and using adhoc analytics
 
-$DemoScenario = 2
+$DemoScenario = 1
 <# Select the demo scenario that will be run. It is recommended you run the scenarios below in order. 
      Demo   Scenario
       0       None
