@@ -20,7 +20,12 @@ $commandText = "
     CREATE VIEW VenueTickets AS 
     SELECT (SELECT TOP 1 VenueName FROM Venue) AS VenueName, TicketId, RowNumber, SeatNumber, EventId, SectionId, TicketPurchaseId FROM [Tickets]
     GO
-    "
+
+    DROP VIEW IF EXISTS RemoteVenueTypes 
+    GO   
+    CREATE VIEW RemoteVenueTypes AS 
+    SELECT (SELECT TOP 1 VenueName FROM Venue) AS VenueName, VenueType, VenueTypeName, EventTypeName, EventTypeShortName, EventTypeShortNamePlural, Language FROM [VenueTypes]
+    GO"
 
 # query timeout in seconds
 $queryTimeout = 60
